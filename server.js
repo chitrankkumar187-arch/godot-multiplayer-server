@@ -1,6 +1,12 @@
+const http = require("http");
 const WebSocket = require("ws");
 
-const wss = new WebSocket.Server({ port: process.env.PORT || 10000 });
+const server = http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end("Server is running");
+});
+
+const wss = new WebSocket.Server({ server });
 
 let clients = [];
 
@@ -11,7 +17,6 @@ wss.on("connection", function connection(ws) {
     ws.on("message", function incoming(message) {
         console.log("Received:", message.toString());
 
-        // 🔥 SEND TO ALL OTHER PLAYERS (NOT SELF)
         clients.forEach(client => {
             if (client !== ws && client.readyState === WebSocket.OPEN) {
                 client.send(message.toString());
@@ -25,4 +30,7 @@ wss.on("connection", function connection(ws) {
     });
 });
 
-console.log("Server running...");
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => {
+    console.log("Server running on port", PORT);
+});
