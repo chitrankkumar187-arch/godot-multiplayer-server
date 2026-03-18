@@ -1,5 +1,4 @@
 const http = require("http");
-constconst http = require("http");
 const WebSocket = require("ws");
 
 const server = http.createServer((req, res) => {
@@ -19,7 +18,6 @@ wss.on("connection", function (ws) {
     ws.on("message", function (message) {
         console.log("Received:", message.toString());
 
-        // 🔥 SEND TO ALL OTHER PLAYERS
         clients.forEach(function (client) {
             if (client !== ws && client.readyState === WebSocket.OPEN) {
                 client.send(message.toString());
