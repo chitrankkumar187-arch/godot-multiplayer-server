@@ -1,42 +1,30 @@
-const http = require("http");
 const WebSocket = require("ws");
 
-// Create HTTP server (required for Render)
-const server = http.createServer((req, res) => {
-    res.writeHead(200);
-    res.end("Server running");
-});
+const server = new WebSocket.Server({ port: 10000 });
 
-// Attach WebSocket to HTTP server
-const wss = new WebSocket.Server({ server });
-
-// Store all connected clients
 let clients = [];
 
-wss.on("connection", (ws) => {
-    console.log("New player connected");
+console.log("🚀 Server started on port 10000");
 
-    clients.push(ws);
+server.on("connection", (ws) => {
+	console.log("🟢 New client connected");
 
-    ws.on("message", (message) => {
-        console.log("Received:", message.toString());
+	clients.push(ws);
 
-        // Send message to ALL OTHER players
-        clients.forEach((client) => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
-                client.send(message.toString());
-            }
-        });
-    });
+	ws.on("message", (message) => {
+		console.log("📩 Received:", message.toString());
 
-    ws.on("close", () => {
-        console.log("Player disconnected");
-        clients = clients.filter(c => c !== ws);
-    });
-});
+		// 🔥 BROADCAST TO ALL PLAYERS
+		clients.forEach((client) => {
+			if (client.readyState === WebSocket.OPEN) {
+				client.send(message.toString());
+			}
+		});
+	});
 
-// Start server
-const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
-    console.log("Server started on port", PORT);
+	ws.on("close", () => {
+		console.log("🔴 Client disconnected");
+
+		clients = clients.filter(c => c !== ws);
+	});
 });
