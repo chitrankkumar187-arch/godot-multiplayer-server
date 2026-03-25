@@ -2,7 +2,7 @@ const WebSocket = require("ws");
 const { MongoClient } = require("mongodb");
 
 // 🔥 YOUR MONGODB URI (PASTE YOURS HERE)
-const uri = "mongodb+srv://dbchitrankrp:krgdcukOENV8AEo5.@godotgame.iv80xeb.mongodb.net/?appName=GodotGame";
+const uri = "mongodb+srv://dbchitrankrp:krgdcukOENV8AEo5@godotgame.iv80xeb.mongodb.net/?appName=GodotGame";
 
 const client = new MongoClient(uri);
 
