@@ -1,23 +1,30 @@
 const WebSocket = require("ws");
 const { MongoClient } = require("mongodb");
 
-const server = new WebSocket.Server({ port: 10000 });
-
-const uri = "mongodb+srv://dbchitrankrp:krgdcukOENV8AEo5.@godotgame.iv80xeb.mongodb.net/?appName=GodotGame"; // 🔥 paste here
+// 🔥 YOUR MONGODB URI (PASTE YOURS HERE)
+const uri = "mongodb+srv://dbchitrankrp:krgdcukOENV8AEo5.@godotgame.iv80xeb.mongodb.net/?appName=GodotGame";
 
 const client = new MongoClient(uri);
 
 let db, accounts;
 
+// 🔥 CONNECT TO DATABASE
 async function connectDB() {
-	await client.connect();
-	db = client.db("GodotGame");
-	accounts = db.collection("accounts");
+	try {
+		await client.connect();
+		db = client.db("GodotGame");
+		accounts = db.collection("accounts");
 
-	console.log("🔥 Connected to MongoDB");
+		console.log("🔥 Connected to MongoDB");
+	} catch (err) {
+		console.log("❌ DB Error:", err);
+	}
 }
 
 connectDB();
+
+// 🔥 WEBSOCKET SERVER
+const server = new WebSocket.Server({ port: 10000 });
 
 let clients = [];
 
@@ -32,9 +39,87 @@ server.on("connection", (ws) => {
 		let msg = message.toString();
 		let data;
 
+		// ✅ FIXED TRY CATCH
 		try {
 			data = JSON.parse(msg);
-		} catch {
+		} catch (err) {
+			console.log("❌ Invalid JSON");
+			return;
+		}
+
+		// =====================
+		// 🔐 SIGNUP
+		// =====================
+		if (data.type === "signup") {
+			try {
+				let user = await accounts.findOne({ username: data.username });
+
+				if (user) {
+					ws.send(JSON.stringify({
+						type: "signup_failed",
+						reason: "User exists"
+					}));
+					return;
+				}
+
+				await accounts.insertOne({
+					username: data.username,
+					password: data.password,
+					gc: 100
+				});
+
+				ws.send(JSON.stringify({
+					type: "signup_success"
+				}));
+
+				console.log("✅ Signup:", data.username);
+			} catch (err) {
+				console.log("❌ Signup error:", err);
+			}
+			return;
+		}
+
+		// =====================
+		// 🔑 LOGIN
+		// =====================
+		if (data.type === "login") {
+			try {
+				let user = await accounts.findOne({ username: data.username });
+
+				if (!user || user.password !== data.password) {
+					ws.send(JSON.stringify({
+						type: "login_failed"
+					}));
+					return;
+				}
+
+				ws.send(JSON.stringify({
+					type: "login_success",
+					gc: user.gc
+				}));
+
+				console.log("🔓 Login:", data.username);
+			} catch (err) {
+				console.log("❌ Login error:", err);
+			}
+			return;
+		}
+
+		// =====================
+		// 🌍 GAME DATA (movement/chat)
+		// =====================
+		clients.forEach((client) => {
+			if (client.readyState === WebSocket.OPEN) {
+				client.send(msg);
+			}
+		});
+	});
+
+	ws.on("close", () => {
+		console.log("🔴 Client disconnected");
+		clients = clients.filter(c => c !== ws);
+	});
+});		} catch {
 			return;
 		}
 
