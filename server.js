@@ -5,18 +5,20 @@ const server = new WebSocket.Server({ port: 10000 });
 
 let clients = [];
 
-// 🔥 DATABASE FILE
+// 📂 DATABASE FILE
 const DB_FILE = "accounts.json";
 
-// 🔥 LOAD DB
+// 🔥 LOAD DATABASE
 function loadDB() {
-	if (!fs.existsSync(DB_FILE)) return {};
+	if (!fs.existsSync(DB_FILE)) {
+		fs.writeFileSync(DB_FILE, JSON.stringify({}));
+	}
 	return JSON.parse(fs.readFileSync(DB_FILE));
 }
 
-// 🔥 SAVE DB
-function saveDB(data) {
-	fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+// 💾 SAVE DATABASE
+function saveDB(db) {
+	fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 
 console.log("🚀 Server started on port 10000");
@@ -39,19 +41,21 @@ server.on("connection", (ws) => {
 
 		let db = loadDB();
 
-		// 🔐 SIGNUP
+		// =========================
+		// 🔐 SIGNUP SYSTEM
+		// =========================
 		if (data.type === "signup") {
 			if (db[data.username]) {
 				ws.send(JSON.stringify({
-					type: "error",
-					message: "User already exists"
+					type: "signup_failed",
+					reason: "User already exists"
 				}));
 				return;
 			}
 
 			db[data.username] = {
 				password: data.password,
-				gc: 0
+				gc: 100 // 🎁 starter coins
 			};
 
 			saveDB(db);
@@ -59,23 +63,25 @@ server.on("connection", (ws) => {
 			ws.send(JSON.stringify({
 				type: "signup_success"
 			}));
+
+			console.log("✅ New account:", data.username);
 			return;
 		}
 
-		// 🔐 LOGIN
+		// =========================
+		// 🔑 LOGIN SYSTEM
+		// =========================
 		if (data.type === "login") {
 			if (!db[data.username]) {
 				ws.send(JSON.stringify({
-					type: "error",
-					message: "User not found"
+					type: "login_failed"
 				}));
 				return;
 			}
 
 			if (db[data.username].password !== data.password) {
 				ws.send(JSON.stringify({
-					type: "error",
-					message: "Wrong password"
+					type: "login_failed"
 				}));
 				return;
 			}
@@ -84,7 +90,26 @@ server.on("connection", (ws) => {
 				type: "login_success",
 				gc: db[data.username].gc
 			}));
+
+			console.log("🔓 Login:", data.username);
 			return;
+		}
+
+		// =========================
+		// 🌍 NORMAL GAME DATA
+		// =========================
+		clients.forEach((client) => {
+			if (client.readyState === WebSocket.OPEN) {
+				client.send(msg);
+			}
+		});
+	});
+
+	ws.on("close", () => {
+		console.log("🔴 Client disconnected");
+		clients = clients.filter(c => c !== ws);
+	});
+});			return;
 		}
 
 		// 💬 CHAT → BROADCAST
