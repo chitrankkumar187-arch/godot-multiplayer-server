@@ -1,13 +1,14 @@
 const WebSocket = require("ws");
 const { MongoClient } = require("mongodb");
 
-// 🔥 YOUR MONGODB URI
-const uri = "mongodb+srv://dbchitrankrp:krgdcukOENV8AEo5@godotgame.iv80xeb.mongodb.net/?appName=GodotGame";
+// 🔐 MongoDB URI (change password later for safety)
+const uri = "mongodb+srv://dbchitrankrp:krgdcukOENV8AEo5@godotgame.iv80xeb.mongodb.net/?retryWrites=true&w=majority";
 
 const client = new MongoClient(uri);
 
 let db, accounts;
 
+// 🔥 CONNECT DATABASE
 async function connectDB() {
 	try {
 		await client.connect();
@@ -22,15 +23,15 @@ async function connectDB() {
 
 connectDB();
 
-// 🌐 SERVER PORT
+// 🌐 SERVER PORT (Render uses this)
 const PORT = process.env.PORT || 10000;
 const server = new WebSocket.Server({ port: PORT });
 
 let clients = [];
 
-console.log("🚀 Server started");
+console.log("🚀 Server started on port", PORT);
 
-// 🔌 CONNECTION
+// 🔌 CLIENT CONNECTION
 server.on("connection", (ws) => {
 	console.log("🟢 Client connected");
 
@@ -61,7 +62,7 @@ server.on("connection", (ws) => {
 					username: data.username,
 					password: data.password,
 					gc: 100,
-					characters: {} // 🔥 IMPORTANT
+					characters: {}
 				});
 
 				ws.send(JSON.stringify({ type: "signup_success" }));
@@ -103,7 +104,7 @@ server.on("connection", (ws) => {
 					{ username: data.username },
 					{
 						$set: {
-							[`characters.${data.server}.${data.slot}`]: {
+							["characters." + data.server + "." + data.slot]: {
 								name: data.name,
 								gender: data.gender
 							}
@@ -147,58 +148,14 @@ server.on("connection", (ws) => {
 			return;
 		}
 
-		// 🌍 GAME + CHAT (BROADCAST)
-		clients.forEach((client) => {
+		// 🌍 GAME + CHAT BROADCAST
+		for (let i = 0; i < clients.length; i++) {
+			let client = clients[i];
+
 			if (client.readyState === WebSocket.OPEN) {
 				client.send(msg);
 			}
-		});
-	});
-
-	ws.on("close", () => {
-		console.log("🔴 Client disconnected");
-		clients = clients.filter(c => c !== ws);
-	});
-});				});
-
-				ws.send(JSON.stringify({ type: "signup_success" }));
-				console.log("✅ Signup:", data.username);
-
-			} catch (err) {
-				console.log("❌ Signup error:", err);
-			}
-			return;
 		}
-
-		// 🔑 LOGIN
-		if (data.type === "login") {
-			try {
-				let user = await accounts.findOne({ username: data.username });
-
-				if (!user || user.password !== data.password) {
-					ws.send(JSON.stringify({ type: "login_failed" }));
-					return;
-				}
-
-				ws.send(JSON.stringify({
-					type: "login_success",
-					gc: user.gc
-				}));
-
-				console.log("🔓 Login:", data.username);
-
-			} catch (err) {
-				console.log("❌ Login error:", err);
-			}
-			return;
-		}
-
-		// 🌍 GAME DATA
-		clients.forEach((client) => {
-			if (client.readyState === WebSocket.OPEN) {
-				client.send(msg);
-			}
-		});
 	});
 
 	ws.on("close", () => {
