@@ -1,7 +1,8 @@
+const http = require("http");
 const WebSocket = require("ws");
 const { MongoClient } = require("mongodb");
 
-// 🔐 MongoDB URI (change password later for safety)
+// 🔐 MongoDB URI
 const uri = "mongodb+srv://dbchitrankrp:krgdcukOENV8AEo5@godotgame.iv80xeb.mongodb.net/?retryWrites=true&w=majority";
 
 const client = new MongoClient(uri);
@@ -23,16 +24,22 @@ async function connectDB() {
 
 connectDB();
 
-// 🌐 SERVER PORT (Render uses this)
+// 🌐 CREATE HTTP SERVER (RENDER FIX)
+const server = http.createServer();
+
+// 🔌 ATTACH WEBSOCKET TO HTTP SERVER
+const wss = new WebSocket.Server({ server });
+
 const PORT = process.env.PORT || 10000;
-const server = new WebSocket.Server({ port: PORT });
+
+server.listen(PORT, () => {
+	console.log("🚀 Server running on port", PORT);
+});
 
 let clients = [];
 
-console.log("🚀 Server started on port", PORT);
-
 // 🔌 CLIENT CONNECTION
-server.on("connection", (ws) => {
+wss.on("connection", (ws) => {
 	console.log("🟢 Client connected");
 
 	clients.push(ws);
@@ -127,17 +134,9 @@ server.on("connection", (ws) => {
 			try {
 				let user = await accounts.findOne({ username: data.username });
 
-				if (!user || !user.characters) {
-					ws.send(JSON.stringify({
-						type: "characters_data",
-						characters: {}
-					}));
-					return;
-				}
-
 				ws.send(JSON.stringify({
 					type: "characters_data",
-					characters: user.characters
+					characters: user?.characters || {}
 				}));
 
 				console.log("📂 Sent characters:", data.username);
