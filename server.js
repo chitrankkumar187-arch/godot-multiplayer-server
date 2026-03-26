@@ -147,12 +147,21 @@ wss.on("connection", (ws) => {
 			return;
 		}
 
-		// 🌍 GAME + CHAT BROADCAST
-		for (let i = 0; i < clients.length; i++) {
-			let client = clients[i];
-
-			if (client.readyState === WebSocket.OPEN) {
-				client.send(msg);
+		// 🌍 GAME + CHAT BROADCAST (SAFE)
+        if (!data.type) {
+			// ✅ Only broadcast VALID player packet
+			if (
+				data.id &&
+				data.name &&
+				typeof data.x === "number" &&
+		        typeof data.y === "number" &&
+		        typeof data.z === "number"
+			) {
+				clients.forEach((client) => {
+					if (client.readyState === WebSocket.OPEN) {
+						client.send(JSON.stringify(data));
+					}
+				});
 			}
 		}
 	});
