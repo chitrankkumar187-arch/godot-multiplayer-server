@@ -1,9 +1,0 @@
-{
-  "name": "godot-server",
-  "version": "1.0.0",
-  "main": "server.js",
-  "dependencies": {
-    "ws": "^8.13.0",
-    "mongodb": "^6.5.0"
-  }
-}
