@@ -1,25 +1,6 @@
 const WebSocket = require("ws");
 const http = require("http");
-const { MongoClient } = require("mongodb");
 
-const uri = "mongodb+srv://dbchitrankrp:krgdcukOENV8AEo5@godotgame.iv80xeb.mongodb.net/?retryWrites=true&w=majority";
-const client = new MongoClient(uri);
-
-let db, accounts;
-
-async function connectDB() {
-	try {
-		await client.connect();
-		db = client.db("GodotGame");
-		accounts = db.collection("accounts");
-		console.log("🔥 MongoDB Connected");
-	} catch (err) {
-		console.log("❌ DB Error:", err);
-	}
-}
-connectDB();
-
-// ✅ REQUIRED FOR RENDER
 const PORT = process.env.PORT || 10000;
 
 const httpServer = http.createServer((req, res) => {
@@ -27,120 +8,46 @@ const httpServer = http.createServer((req, res) => {
 	res.end("Server running");
 });
 
-httpServer.listen(PORT, "0.0.0.0", () => {
-	console.log("🚀 HTTP running on", PORT);
-});
+httpServer.listen(PORT, "0.0.0.0");
 
 const wss = new WebSocket.Server({ server: httpServer });
 
-let clients = [];
+let players = [];
 
 wss.on("connection", (ws) => {
-	console.log("🟢 Client connected");
-	clients.push(ws);
+	console.log("🟢 Player connected");
 
-	ws.on("message", async (message) => {
-		let data;
+	if (players.length >= 2) {
+		ws.send(JSON.stringify({ type: "full" }));
+		ws.close();
+		return;
+	}
 
-		try {
-			data = JSON.parse(message.toString());
-		} catch {
-			console.log("❌ Bad JSON");
-			return;
-		}
+	players.push(ws);
 
-		// 🔐 SIGNUP
-		if (data.type === "signup") {
-			let user = await accounts.findOne({ username: data.username });
+	// Assign role
+	if (players.length == 1) {
+		ws.send(JSON.stringify({ type: "role", role: "host" }));
+	} else if (players.length == 2) {
+		ws.send(JSON.stringify({ type: "role", role: "guest" }));
 
-			if (user) {
-				ws.send(JSON.stringify({ type: "signup_failed" }));
-				return;
+		// Start match for both
+		players.forEach(p => {
+			p.send(JSON.stringify({ type: "start_match" }));
+		});
+	}
+
+	ws.on("message", (msg) => {
+		// Relay message to other player
+		players.forEach(p => {
+			if (p !== ws && p.readyState === WebSocket.OPEN) {
+				p.send(msg.toString());
 			}
-
-			await accounts.insertOne({
-				username: data.username,
-				password: data.password,
-				gc: 100,
-				characters: {}
-			});
-
-			ws.send(JSON.stringify({ type: "signup_success" }));
-			return;
-		}
-
-		// 🔑 LOGIN
-		if (data.type === "login") {
-			let user = await accounts.findOne({ username: data.username });
-
-			if (!user || user.password !== data.password) {
-				ws.send(JSON.stringify({ type: "login_failed" }));
-				return;
-			}
-
-			ws.send(JSON.stringify({
-				type: "login_success",
-				gc: user.gc
-			}));
-			return;
-		}
-
-		// 💾 SAVE CHARACTER
-		if (data.type === "save_character") {
-			await accounts.updateOne(
-				{ username: data.username },
-				{
-					$set: {
-						[`characters.${data.server}.${data.slot}`]: {
-							name: data.name,
-							gender: data.gender
-						}
-					}
-				},
-				{ upsert: true }
-			);
-
-			ws.send(JSON.stringify({ type: "save_success" }));
-			return;
-		}
-
-		// 📂 LOAD CHARACTERS
-		if (data.type === "load_characters") {
-			let user = await accounts.findOne({ username: data.username });
-
-			ws.send(JSON.stringify({
-				type: "characters_data",
-				characters: user?.characters || {}
-			}));
-			return;
-		}
-
-		// 💬 CHAT
-		if (data.type === "chat") {
-			clients.forEach(c => {
-				if (c.readyState === WebSocket.OPEN) {
-					c.send(JSON.stringify(data));
-				}
-			});
-			return;
-		}
-
-		// 🎮 PLAYER SYNC
-		if (data.id && typeof data.x === "number") {
-			clients.forEach(c => {
-				if (c.readyState === WebSocket.OPEN) {
-					c.send(JSON.stringify(data));
-				}
-			});
-		}
+		});
 	});
 
 	ws.on("close", () => {
-		console.log("🔴 Client disconnected");
-		clients = clients.filter(c => c !== ws);
-	});
-
-	ws.on("error", (err) => {
-		console.log("⚠️ Socket error:", err.message);
+		console.log("🔴 Player disconnected");
+		players = players.filter(p => p !== ws);
 	});
 });
